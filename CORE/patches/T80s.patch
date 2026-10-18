@@ -1,0 +1,11 @@
+--- a/rtl/T80/T80s.vhd
++++ b/rtl/T80/T80s.vhd
+@@ -111,7 +111,7 @@
+ 
+ begin
+ 
+-	u0 : work.T80
++	u0 : entity work.T80
+ 	generic map(
+ 		Mode => Mode,
+ 		IOWait => IOWait)

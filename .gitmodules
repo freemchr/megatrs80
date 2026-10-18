@@ -1,3 +1,6 @@
 [submodule "QNICE"]
 	path = M2M/QNICE
 	url = https://github.com/sy2002/QNICE-FPGA
+[submodule "CORE/TRS-80_MiSTer"]
+	path = CORE/TRS-80_MiSTer
+	url = https://github.com/MiSTer-devel/TRS-80_MiSTer.git

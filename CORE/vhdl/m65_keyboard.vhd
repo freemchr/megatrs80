@@ -1,44 +1,62 @@
 ---------------------------------------------------------------------------------------------------------
--- MiSTer2MEGA65 Framework  
+-- TRS-80 for MEGA65
 --
--- Custom keyboard controller for your core
+-- MEGA65 keyboard to TRS-80 keyboard matrix
 --
 -- Runs in the clock domain of the core.
---
--- This is how MiSTer2MEGA65 provides access to the MEGA65 keyboard: 
---
--- Each core is treating the keyboard in a different way: Some need low-active "matrices", some
--- might need small high-active keyboard memories, etc. This is why the MiSTer2MEGA65 framework
--- lets you define literally everything and only provides a minimal abstraction layer to the keyboard.
--- You need to adjust this module to your needs.
 --
 -- MiSTer2MEGA65 provides a very simple and generic interface to the MEGA65 keyboard:
 -- kb_key_num_i is running through the key numbers 0 to 79 with a frequency of 1 kHz, i.e. the whole
 -- keyboard is scanned 1000 times per second. kb_key_pressed_n_i is already debounced and signals
 -- low active, if a certain key is being pressed right now.
--- 
+--
+-- The TRS-80 Model I keyboard is an 8 x 8 matrix at $3800 (address line A0 .. A7 = row,
+-- data bit = column, high active):
+--
+--    row 0: @ A B C D E F G           row 4: 0 1 2 3 4 5 6 7
+--    row 1: H I J K L M N O           row 5: 8 9 : ; , - . /
+--    row 2: P Q R S T U V W           row 6: ENTER CLEAR BREAK UP DOWN LEFT RIGHT SPACE
+--    row 3: X Y Z                     row 7: SHIFT
+--
+-- The shifted digits and the ", < . > / ?" keys of the MEGA65 are the same as on the TRS-80, so
+-- the keys are mapped by their labels:
+--
+--    MEGA65                   TRS-80
+--    @ : ; , - . /            @ : ; , - . /
+--    * + =                    Shift + :  Shift + ;  Shift + -   (shift is forced)
+--    Return                   ENTER
+--    Clr/Home, Tab            CLEAR
+--    Run/Stop, Esc            BREAK
+--    Cursor keys              arrow keys
+--    Inst/Del, left arrow     LEFT (backspace)
+--    up arrow (symbol key)    UP
+--    Ctrl                     Shift + DOWN (like the MiSTer core)
+--
+-- The matrix is transferred to the TRS-80 core row by row over the ps2_key port of the core (see
+-- CORE/vhdl/trs80/keyboard_matrix.vhd): matrix_o(10 downto 8) = row, matrix_o(7 downto 0) = keys.
+--
 -- MiSTer2MEGA65 done by sy2002 and MJoergen in 2022 and licensed under GPL v3
+-- TRS-80 port 2026, licensed under GPL v3
 ---------------------------------------------------------------------------------------------------------
 
-library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
 
-entity keyboard is
+entity m65_keyboard is
    port (
-      clk_main_i           : in std_logic;               -- core clock
-         
-      -- Interface to the MEGA65 keyboard
-      key_num_i            : in integer range 0 to 79;   -- cycles through all MEGA65 keys
-      key_pressed_n_i      : in std_logic;               -- low active: debounced feedback: is kb_key_num_i pressed right now?
-               
-      -- @TODO: Create the kind of keyboard output that your core needs
-      -- "example_n_o" is a low active register and used by the demo core
-      example_n_o          : out std_logic_vector(79 downto 0)
-   );
-end keyboard;
+      clk_main_i           : in  std_logic;               -- core clock
 
-architecture beh of keyboard is
+      -- Interface to the MEGA65 keyboard
+      key_num_i            : in  integer range 0 to 79;   -- cycles through all MEGA65 keys
+      key_pressed_n_i      : in  std_logic;               -- low active: debounced feedback: is kb_key_num_i pressed right now?
+
+      -- TRS-80 keyboard matrix, one row per clock cycle
+      matrix_o             : out std_logic_vector(10 downto 0)
+   );
+end entity m65_keyboard;
+
+architecture synthesis of m65_keyboard is
 
 -- MEGA65 key codes that kb_key_num_i is using while
 -- kb_key_pressed_n_i is signalling (low active) which key is pressed
@@ -119,17 +137,60 @@ constant m65_up_crsr       : integer := 73;  -- cursor up
 constant m65_left_crsr     : integer := 74;  -- cursor left
 constant m65_restore       : integer := 75;
 
-signal key_pressed_n : std_logic_vector(79 downto 0);
+signal key_pressed_n : std_logic_vector(79 downto 0) := (others => '1');
+
+type rows_t is array (0 to 7) of std_logic_vector(7 downto 0);
+signal rows          : rows_t;
+signal row           : unsigned(2 downto 0) := (others => '0');
 
 begin
 
-   example_n_o <= key_pressed_n;
-   
-   keyboard_state : process(clk_main_i)
+   keyboard_state : process (clk_main_i)
    begin
       if rising_edge(clk_main_i) then
          key_pressed_n(key_num_i) <= key_pressed_n_i;
       end if;
-   end process;
+   end process keyboard_state;
 
-end beh;
+   matrix : process (all)
+      -- high active: is the MEGA65 key pressed?
+      impure function k(n : integer) return std_logic is
+      begin
+         return not key_pressed_n(n);
+      end function k;
+      variable force_shift : std_logic;
+   begin
+      force_shift := k(m65_asterisk) or k(m65_plus) or k(m65_equal) or k(m65_ctrl);
+
+      rows(0) <= k(m65_g) & k(m65_f) & k(m65_e) & k(m65_d) & k(m65_c) & k(m65_b) & k(m65_a) & k(m65_at);
+      rows(1) <= k(m65_o) & k(m65_n) & k(m65_m) & k(m65_l) & k(m65_k) & k(m65_j) & k(m65_i) & k(m65_h);
+      rows(2) <= k(m65_w) & k(m65_v) & k(m65_u) & k(m65_t) & k(m65_s) & k(m65_r) & k(m65_q) & k(m65_p);
+      rows(3) <= "00000" & k(m65_z) & k(m65_y) & k(m65_x);
+      rows(4) <= k(m65_7) & k(m65_6) & k(m65_5) & k(m65_4) & k(m65_3) & k(m65_2) & k(m65_1) & k(m65_0);
+      rows(5) <= k(m65_slash) &                                   -- /
+                 k(m65_dot) &                                     -- .
+                 (k(m65_minus) or k(m65_equal)) &                 -- - (Shift: =)
+                 k(m65_comma) &                                   -- ,
+                 (k(m65_semicolon) or k(m65_plus)) &              -- ; (Shift: +)
+                 (k(m65_colon) or k(m65_asterisk)) &              -- : (Shift: *)
+                 k(m65_9) & k(m65_8);
+      rows(6) <= k(m65_space) &                                   -- SPACE
+                 k(m65_horz_crsr) &                               -- RIGHT
+                 (k(m65_left_crsr) or k(m65_ins_del) or k(m65_arrow_left)) & -- LEFT
+                 (k(m65_vert_crsr) or k(m65_ctrl)) &              -- DOWN
+                 (k(m65_up_crsr) or k(m65_arrow_up)) &            -- UP
+                 (k(m65_run_stop) or k(m65_esc)) &                -- BREAK
+                 (k(m65_clr_home) or k(m65_tab)) &                -- CLEAR
+                 k(m65_return);                                   -- ENTER
+      rows(7) <= "0000000" & (k(m65_left_shift) or k(m65_right_shift) or force_shift);
+   end process matrix;
+
+   transfer : process (clk_main_i)
+   begin
+      if rising_edge(clk_main_i) then
+         row      <= row + 1;
+         matrix_o <= std_logic_vector(row) & rows(to_integer(row));
+      end if;
+   end process transfer;
+
+end architecture synthesis;

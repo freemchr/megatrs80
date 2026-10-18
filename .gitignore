@@ -21,3 +21,18 @@ M2M/rom/*.lis
 M2M/rom/*.out
 M2M/rom/*.rom
 M2M/video_filters/*.out
+
+# TRS-80: ROMs, disk images, settings and built cores (repository root) are not part of the repository
+/*.rom
+/*.ROM
+/*.cor
+/*.dsk
+/*.DSK
+/*.cas
+/*.CAS
+/*.cmd
+/*.CMD
+/trs80cfg
+/*.zip
+/*.ZIP
+*:Zone.Identifier

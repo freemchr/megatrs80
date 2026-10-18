@@ -1,0 +1,18 @@
+--- a/rtl/trs80.vhd
++++ b/rtl/trs80.vhd
+@@ -761,13 +761,13 @@
+ 					when "00" => clk1774_div <= "010111";  --   1x speed =  1.78 (42MHz / 24)
+ 					when "01" => clk1774_div <= "001011";  -- 	2x speed =  3.58 (42MHz / 12)
+ 					when "10" => clk1774_div <= "000111";  --   3x speed =  5.34 (42MHz /  8)
+-					when "11" => clk1774_div <= "000001";  --  12x speed = 21.29 (42MHz /  2)
++					when others => clk1774_div <= "000001";  --  12x speed = 21.29 (42MHz /  2)
+ 				end case;
+ 				case overclock(1 downto 0) is
+ 					when "00" => fdc_clk_div <= 1;  --   1x speed =  1.78 (42MHz / 24)
+ 					when "01" => fdc_clk_div <= 2;  --   2x speed =  3.58 (42MHz / 12)
+ 					when "10" => fdc_clk_div <= 3;  --   3x speed =  5.34 (42MHz /  8)
+-					when "11" => fdc_clk_div <= 12;  --  12x speed = 21.29 (42MHz /  2)
++					when others => fdc_clk_div <= 12;  --  12x speed = 21.29 (42MHz /  2)
+ 				end case;
+ 			end if;
+ 		else

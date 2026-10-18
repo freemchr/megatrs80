@@ -1,0 +1,75 @@
+--- a/rtl/fdc1771/fdc1771.sv
++++ b/rtl/fdc1771/fdc1771.sv
+@@ -74,9 +74,9 @@
+ 	output	  [15:0] spare_out,
+ 	
+ 	// status display graphical UI
+-	output	[3:0] UI_floppy_ready,
+-	output	[3:0] UI_floppy_read,
+-	output	[3:0] UI_floppy_write
++	output reg [3:0] UI_floppy_ready,
++	output reg [3:0] UI_floppy_read,
++	output reg [3:0] UI_floppy_write
+ 
+ );
+ 
+@@ -84,8 +84,8 @@
+ 
+ // localparam SECTOR_BASE = 1'b0; // number of first sector on track (archie,trs80 0, dos 1) 
+ localparam MAX_TRACK = 8'd250;	// A seek for a track above this will throw RNF
+-wire [31:0] sd_lba0 ;
+-wire [1:0] sd_lbaOFF ;
++reg  [31:0] sd_lba0 ;
++reg  [1:0] sd_lbaOFF ;
+ 
+ 
+ wire SECTOR_BASE = spt9 ; // if CP/M sectorbase=1
+@@ -184,7 +184,7 @@
+ reg   [4:0] image_spt; // sectors/track
+ reg   [9:0] image_gap_len;
+ reg         image_doubleside;
+-wire [1:0] image_hd ; //img_size[20];
++reg  [1:0] image_hd ; //img_size[20];
+ 
+ always @(*) begin
+ //	if (sector_size_code == 3) begin
+@@ -325,7 +325,13 @@
+ // -------------------------------------------------------------------------
+ // ------------------------------- floppy 0 --------------------------------
+ // -------------------------------------------------------------------------
+-wire index_set ;
++reg  index_set ;
++
++// MEGA65: used in the port connections below. Declared here, because Vivado creates
++// new, undriven implicit nets for identifiers used before their declaration.
++reg step_in, step_out;
++wire [15:0] step_delay_ms;
++reg [7:0] data_in;
+ 
+ wire fd0_index;
+ wire fd0_ready;
+@@ -582,7 +588,6 @@
+ //reg [3:0] motor_timeout_index /* verilator public */;
+ reg indexD;
+ reg busy /* verilator public */;
+-reg step_in, step_out;
+ //reg [3:0] motor_spin_up_sequence /* verilator public */;
+ 
+ // consider spin up done either if the motor is not supposed to spin at all or
+@@ -592,7 +597,7 @@
+ // ---------------------------- step handling ------------------------------
+ // Moved to Floppy.v
+ // the step rate is only valid for command type I
+-wire [15:0] step_delay_ms = 
++assign step_delay_ms = 
+            (cmd[1:0]==2'b00) ? 16'd6:   // 12ms
+            (cmd[1:0]==2'b01) ? 16'd6:   // 12ms
+            (cmd[1:0]==2'b10) ? 16'd12:   // 20ms
+@@ -1182,7 +1187,6 @@
+ 
+ reg [7:0] track; /* verilator public */
+ reg [7:0] sector;
+-reg [7:0] data_in;
+ reg [7:0] data_out;
+ 
+ reg step_dir;

@@ -4,6 +4,7 @@
 -- Global constants
 --
 -- MiSTer2MEGA65 done by sy2002 and MJoergen in 2022 and licensed under GPL v3
+-- TRS-80 port 2026, licensed under GPL v3
 ----------------------------------------------------------------------------------
 
 library IEEE;
@@ -40,8 +41,8 @@ constant QNICE_FIRMWARE           : string  := QNICE_FIRMWARE_M2M;
 -- then add all the clocks speeds here by adding more constants.
 ----------------------------------------------------------------------------------------------------------
 
--- @TODO: Your core's clock speed
-constant CORE_CLK_SPEED       : natural := 54_000_000;   -- @TODO YOURCORE expects 54 MHz
+-- TRS-80: the MiSTer core runs at 42.578 MHz, the MEGA65 version at 42.578125 MHz (see clk.vhd)
+constant CORE_CLK_SPEED       : natural := 42_578_125;
 
 -- System clock speed (crystal that is driving the FPGA) and QNICE clock speed
 -- !!! Do not touch !!!
@@ -56,8 +57,9 @@ constant QNICE_CLK_SPEED      : natural := 50_000_000;   -- a change here has de
 --    VGA_*   size of the core's target output post scandoubler
 --    If in doubt, use twice the values found in this link:
 --    https://mister-devel.github.io/MkDocs_MiSTer/advanced/nativeres/#arcade-core-default-native-resolutions
-constant VGA_DX               : natural := 720;
-constant VGA_DY               : natural := 576;
+--    TRS-80: 384 x 192 pixels without overscan (the smallest of the three overscan modes)
+constant VGA_DX               : natural := 768;
+constant VGA_DY               : natural := 384;
 
 --    FONT_*  size of one OSM character
 constant FONT_FILE            : string  := "../font/Anikki-16x16-m2m.rom";
@@ -75,16 +77,28 @@ constant VRAM_ADDR_WIDTH      : natural := f_log2(CHAR_MEM_SIZE);
 ----------------------------------------------------------------------------------------------------------
 
 constant C_HMAP_M2M           : std_logic_vector(15 downto 0) := x"0000";     -- Reserved for the M2M framework
-constant C_HMAP_DEMO          : std_logic_vector(15 downto 0) := x"0200";     -- Start address reserved for core
+constant C_HMAP_VD0           : std_logic_vector(15 downto 0) := x"0200";     -- Disk image buffer drive 0 (1 MB)
+constant C_HMAP_VD1           : std_logic_vector(15 downto 0) := x"0280";     -- Disk image buffer drive 1 (1 MB)
+constant C_HMAP_VD2           : std_logic_vector(15 downto 0) := x"0300";     -- Disk image buffer drive 2 (1 MB)
+constant C_HMAP_VD3           : std_logic_vector(15 downto 0) := x"0380";     -- Disk image buffer drive 3 (1 MB)
+
+----------------------------------------------------------------------------------------------------------
+-- Core specific QNICE devices (device numbers need to be >= 0x0100)
+----------------------------------------------------------------------------------------------------------
+
+constant C_DEV_TRS_VD         : std_logic_vector(15 downto 0) := x"0100";     -- vdrives.vhd
+constant C_DEV_TRS_VD0_BUF    : std_logic_vector(15 downto 0) := x"0101";     -- disk image buffer drive 0 (HyperRAM)
+constant C_DEV_TRS_VD1_BUF    : std_logic_vector(15 downto 0) := x"0102";     -- disk image buffer drive 1 (HyperRAM)
+constant C_DEV_TRS_VD2_BUF    : std_logic_vector(15 downto 0) := x"0103";     -- disk image buffer drive 2 (HyperRAM)
+constant C_DEV_TRS_VD3_BUF    : std_logic_vector(15 downto 0) := x"0104";     -- disk image buffer drive 3 (HyperRAM)
+constant C_DEV_TRS_ROM        : std_logic_vector(15 downto 0) := x"0105";     -- BOOT.ROM (ioctl_loader.vhd)
+constant C_DEV_TRS_ROM1       : std_logic_vector(15 downto 0) := x"0106";     -- Omikron CP/M mapper ROM (ioctl_loader.vhd)
+constant C_DEV_TRS_PRG        : std_logic_vector(15 downto 0) := x"0107";     -- CMD and BAS programs (ioctl_loader.vhd)
+constant C_DEV_TRS_CAS        : std_logic_vector(15 downto 0) := x"0108";     -- cassettes (ioctl_loader.vhd)
 
 ----------------------------------------------------------------------------------------------------------
 -- Virtual Drive Management System
 ----------------------------------------------------------------------------------------------------------
-
--- example virtual drive handler, which is connected to nothing and only here to demo
--- the file- and directory browsing capabilities of the firmware
-constant C_DEV_DEMO_VD        : std_logic_vector(15 downto 0) := x"0101";
-constant C_DEV_DEMO_NOBUFFER  : std_logic_vector(15 downto 0) := x"AAAA";
 
 -- Virtual drive management system (handled by vdrives.vhd and the firmware)
 -- If you are not using virtual drives, make sure that:
@@ -94,11 +108,13 @@ constant C_DEV_DEMO_NOBUFFER  : std_logic_vector(15 downto 0) := x"AAAA";
 -- Otherwise make sure that you wire C_VD_DEVICE in the qnice_ramrom_devices process and that you
 -- have as many appropriately sized RAM buffers for disk images as you have drives
 type vd_buf_array is array(natural range <>) of std_logic_vector;
-constant C_VDNUM              : natural := 3;                                          -- amount of virtual drives; maximum is 15
-constant C_VD_DEVICE          : std_logic_vector(15 downto 0) := C_DEV_DEMO_VD;        -- device number of vdrives.vhd device
-constant C_VD_BUFFER          : vd_buf_array := (  C_DEV_DEMO_NOBUFFER,
-                                                   C_DEV_DEMO_NOBUFFER,
-                                                   C_DEV_DEMO_NOBUFFER,
+-- TRS-80: four floppy drives (JV1 disk images)
+constant C_VDNUM              : natural := 4;                                          -- amount of virtual drives; maximum is 15
+constant C_VD_DEVICE          : std_logic_vector(15 downto 0) := C_DEV_TRS_VD;         -- device number of vdrives.vhd device
+constant C_VD_BUFFER          : vd_buf_array := (  C_DEV_TRS_VD0_BUF,
+                                                   C_DEV_TRS_VD1_BUF,
+                                                   C_DEV_TRS_VD2_BUF,
+                                                   C_DEV_TRS_VD3_BUF,
                                                    x"EEEE");                           -- Always finish the array using x"EEEE"
 
 ----------------------------------------------------------------------------------------------------------
@@ -129,8 +145,10 @@ constant C_CRTROMTYPE_OPTIONAL   : std_logic_vector(15 downto 0) := x"0004";
 --       else it is a 4k window in HyperRAM or in SDRAM
 -- In case we are loading to a QNICE device, then the control and status register is located at the 4k window 0xFFFF.
 -- @TODO: See @TODO for more details about the control and status register
-constant C_CRTROMS_MAN_NUM       : natural := 0;                                       -- amount of manually loadable ROMs and carts; maximum is 16
-constant C_CRTROMS_MAN           : crtrom_buf_array := ( x"EEEE", x"EEEE",
+-- TRS-80: programs (*.CMD, *.BAS) and cassettes (*.CAS), see ioctl_loader.vhd
+constant C_CRTROMS_MAN_NUM       : natural := 2;                                       -- amount of manually loadable ROMs and carts; maximum is 16
+constant C_CRTROMS_MAN           : crtrom_buf_array := ( C_CRTROMTYPE_DEVICE, C_DEV_TRS_PRG,
+                                                         C_CRTROMTYPE_DEVICE, C_DEV_TRS_CAS,
                                                          x"EEEE");                     -- Always finish the array using x"EEEE"
 
 -- Automatically loaded ROMs: These ROMs are loaded before the core starts
@@ -152,10 +170,16 @@ constant C_CRTROMS_MAN           : crtrom_buf_array := ( x"EEEE", x"EEEE",
 --               c) Don't forget to finish the C_CRTROMS_AUTO array with x"EEEE"
 
 -- M2M framework constants
-constant C_CRTROMS_AUTO_NUM      : natural := 0;                                       -- Amount of automatically loadable ROMs and carts, maximum is 16
-constant C_CRTROMS_AUTO_NAMES    : string  := "" & ENDSTR;
-constant C_CRTROMS_AUTO          : crtrom_buf_array := ( x"EEEE", x"EEEE", x"EEEE", x"EEEE",
-                                                         x"EEEE");                     -- Always finish the array using x"EEEE"
+-- TRS-80: the Model I ROM (mandatory) and the Omikron CP/M mapper ROM (optional)
+constant C_ROM_NAME              : string  := "/trs80/boot.rom" & ENDSTR;
+constant C_ROM1_NAME             : string  := "/trs80/boot1.rom" & ENDSTR;
+
+constant C_CRTROMS_AUTO_NUM      : natural := 2;                                       -- Amount of automatically loadable ROMs and carts, maximum is 16
+constant C_CRTROMS_AUTO_NAMES    : string  := C_ROM_NAME & C_ROM1_NAME & ENDSTR;
+constant C_CRTROMS_AUTO          : crtrom_buf_array := (
+      C_CRTROMTYPE_DEVICE, C_DEV_TRS_ROM,  C_CRTROMTYPE_MANDATORY, x"0000",
+      C_CRTROMTYPE_DEVICE, C_DEV_TRS_ROM1, C_CRTROMTYPE_OPTIONAL,  std_logic_vector(to_unsigned(C_ROM_NAME'length, 16)),
+      x"EEEE");                                                                        -- Always finish the array using x"EEEE"
 
 ----------------------------------------------------------------------------------------------------------
 -- Audio filters
@@ -164,7 +188,7 @@ constant C_CRTROMS_AUTO          : crtrom_buf_array := ( x"EEEE", x"EEEE", x"EEE
 -- that you are porting: sys/sys_top.v
 ----------------------------------------------------------------------------------------------------------
 
--- Sample values from the C64: @TODO: Adjust to your needs
+-- Sample values from the C64 (the TRS-80 MiSTer core does not define its own audio filter)
 constant audio_flt_rate : std_logic_vector(31 downto 0) := std_logic_vector(to_signed(7056000, 32));
 constant audio_cx       : std_logic_vector(39 downto 0) := std_logic_vector(to_signed(4258969, 40));
 constant audio_cx0      : std_logic_vector( 7 downto 0) := std_logic_vector(to_signed(3, 8));
